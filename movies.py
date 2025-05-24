@@ -25,32 +25,38 @@ def get_genre_map():
         genre_map = {genre["name"].lower(): genre["id"] for genre in genres}
     return genre_map
 
-# Function to fetch movies or series
-
-def fetch_items(endpoint, item_type="movie", limit=10):
-    url = f"{TMDB_BASE_URL}/{endpoint}"
+# Function to fetch movies from TMDB
+def fetch_movies(category, year=None, genre_id=None, language=None):
+    url = f"{TMDB_BASE_URL}/movie/{category}"
     params = {
         "api_key": TMDB_API_KEY,
         "language": "en-US",
         "sort_by": "popularity.desc",
         "page": 1
     }
+    if year:
+        params["primary_release_year"] = year
+    if genre_id:
+        params["with_genres"] = genre_id
+    if language:
+        params["with_original_language"] = language
+
     response = requests.get(url, params=params)
     if response.status_code == 200:
-        return response.json().get("results", [])[:limit]
+        return response.json().get("results", [])[:10]
     else:
         return []
 
 # Function to fetch trailer URL
-def fetch_trailer(item_id, item_type="movie"):
-    url = f"{TMDB_BASE_URL}/{item_type}/{item_id}/videos"
+def fetch_trailer(movie_id):
+    url = f"{TMDB_BASE_URL}/movie/{movie_id}/videos"
     params = {"api_key": TMDB_API_KEY}
     response = requests.get(url, params=params)
     if response.status_code == 200:
         videos = response.json().get("results", [])
         for video in videos:
             if video["site"] == "YouTube" and video["type"] == "Trailer":
-                return f"https://www.youtube.com/embed/{video['key']}"
+                return f"https://www.youtube.com/watch?v={video['key']}"
     return None
 
 # Function to fetch ratings from OMDb
@@ -68,29 +74,35 @@ def fetch_ratings(title):
     else:
         return "N/A", "N/A"
 
-# Function to display cards with trailers
-def display_items(items, show_details=True):
-    for i in range(0, len(items), 5):
+# Function to display movie cards
+def display_movies(movies, show_details=True):
+    for i in range(0, len(movies), 5):
         cols = st.columns(5)
         for j in range(5):
-            if i + j >= len(items):
+            if i + j >= len(movies):
                 break
-            item = items[i + j]
+            movie = movies[i + j]
             with cols[j]:
-                poster_url = TMDB_IMAGE_BASE_URL + item["poster_path"] if item.get("poster_path") else ""
-                trailer_url = fetch_trailer(item["id"], item_type="movie")
-                with st.container():
-                    if trailer_url:
-                        st.image(poster_url, use_container_width=True)
-                        st.video(trailer_url)
-                    else:
-                        st.image(poster_url, use_container_width=True)
-                    st.markdown(f"**{item['title'] if 'title' in item else item['name']}**")
-                    if show_details:
-                        st.markdown(f"Release: {item.get('release_date', item.get('first_air_date', 'N/A'))}")
-                        st.markdown(f"TMDB Rating: {item.get('vote_average', 'N/A')}")
-                        imdb_rating, rt_rating = fetch_ratings(item['title'] if 'title' in item else item['name'])
-                        st.markdown(f"IMDb: {imdb_rating} | RT: {rt_rating}")
+                poster_url = TMDB_IMAGE_BASE_URL + movie["poster_path"] if movie.get("poster_path") else ""
+                trailer_url = fetch_trailer(movie["id"])
+                imdb_rating, rt_rating = fetch_ratings(movie['title'])
+
+                # Clickable poster linking to YouTube trailer
+                if trailer_url:
+                    st.markdown(f'''
+                        <a href="{trailer_url}" target="_blank">
+                            <img src="{poster_url}" style="width:100%; border-radius:10px;">
+                        </a>
+                        ''', unsafe_allow_html=True)
+                else:
+                    st.image(poster_url, use_container_width=True)
+
+                st.markdown(f"**{movie['title']}**")
+                if show_details:
+                    st.markdown(f"Release Date: {movie.get('release_date', 'N/A')}")
+                    st.markdown(f"TMDB Rating: {movie.get('vote_average', 'N/A')}")
+                    st.markdown(f"IMDb Rating: {imdb_rating}")
+                    st.markdown(f"Rotten Tomatoes: {rt_rating}")
 
 # Sidebar filters
 st.sidebar.header("Filters")
@@ -99,23 +111,25 @@ genre_input = st.sidebar.text_input("Enter Genre (e.g., Action, Comedy)").strip(
 language = st.sidebar.selectbox("Select Language", ["All", "en", "hi", "ta", "te", "ml"])
 language = None if language == "All" else language
 
-# Fetch genre ID
+# Get genre ID from name
 genre_map = get_genre_map()
 genre_id = genre_map.get(genre_input) if genre_input else None
 
 # Sections
-st.subheader("🔥 Top 10 Popular Movies")
-popular_movies = fetch_items("movie/popular", limit=10)
-display_items(popular_movies)
+st.subheader("🔥 Popular Movies")
+popular_movies = fetch_movies("popular", year=year, genre_id=genre_id, language=language)
+display_movies(popular_movies)
 
-st.subheader("🎯 Top 10 Upcoming Movies")
-upcoming_movies = fetch_items("movie/upcoming", limit=10)
-display_items(upcoming_movies, show_details=False)
+st.subheader("🎯 Upcoming Movies")
+upcoming_movies = fetch_movies("upcoming", year=year, genre_id=genre_id, language=language)
+display_movies(upcoming_movies, show_details=False)
 
-st.subheader("🆕 Recently Added on Netflix")
-netflix_movies = fetch_items("movie/now_playing", limit=10)
-display_items(netflix_movies, show_details=False)
+# Simulated Netflix & Amazon Prime Sections
+st.subheader("📺 New on Netflix")
+netflix_movies = fetch_movies("now_playing", language="en")[:10]
+display_movies(netflix_movies, show_details=False)
 
-st.subheader("⭐ New on Amazon Prime")
-amazon_movies = fetch_items("movie/top_rated", limit=10)
-display_items(amazon_movies, show_details=False)
+st.subheader("🛒 New on Amazon Prime")
+amazon_movies = fetch_movies("top_rated", language="en")[:10]
+display_movies(amazon_movies, show_details=False)
+
