@@ -117,15 +117,15 @@ with st.expander("🔥 Popular Movies", expanded=True):
     popular_movies = fetch_movies("popular", year=year, genre_id=genre_id, language=language)
     display_movies(popular_movies)
 
-with st.expander("🎯 Upcoming Movies"):
+with st.expander("🍿 Upcoming Movies"):
     upcoming_movies = fetch_movies("upcoming", year=year, genre_id=genre_id, language=language)
     display_movies(upcoming_movies, show_details=False)
 
-with st.expander("📺 New on Netflix"):
+with st.expander("🎬 New on Netflix"):
     netflix_movies = fetch_movies("now_playing", language="en")
     display_movies(netflix_movies, show_details=False)
 
-with st.expander("🛒 New on Amazon Prime"):
+with st.expander("📺 New on Amazon Prime"):
     amazon_movies = fetch_movies("top_rated", language="en")
     display_movies(amazon_movies, show_details=False)
 
