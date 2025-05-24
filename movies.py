@@ -11,18 +11,26 @@ API_KEY = st.secrets["TMDB_API_KEY"]
 BASE_URL = "https://api.themoviedb.org/3"
 IMAGE_BASE = "https://image.tmdb.org/t/p/w500"
 
+# Sidebar filters
+year = st.sidebar.selectbox("Select Year", list(range(2025, 1990, -1)))
+language = st.sidebar.selectbox("Language", ["en", "hi", "ta", "te", "ml"])
+
 # Helper to fetch movies by year/language
-def fetch_movies(category, year, language, limit=10):
+def fetch_movies(year, language, is_upcoming=False):
     endpoint = f"{BASE_URL}/discover/movie"
     params = {
         "api_key": API_KEY,
-        "language": "en-US",
         "sort_by": "popularity.desc",
         "primary_release_year": year,
-        "with_original_language": language
+        "with_original_language": language,
+        "language": "en-US"
     }
+    if is_upcoming:
+        endpoint = f"{BASE_URL}/movie/upcoming"
+        del params["primary_release_year"]
+        del params["with_original_language"]
     res = requests.get(endpoint, params=params)
-    return res.json().get("results", [])[:limit]
+    return res.json().get("results", [])[:10]
 
 # Get trailer link
 def get_trailer(movie_id):
@@ -32,13 +40,9 @@ def get_trailer(movie_id):
     for v in videos:
         if v["site"] == "YouTube" and v["type"] == "Trailer":
             return f"https://www.youtube.com/embed/{v['key']}"
-    return None
+    return "https://www.youtube.com"
 
-# Sidebar filters
-year = st.sidebar.selectbox("Select Year", list(range(2025, 1990, -1)), index=0)
-language = st.sidebar.selectbox("Language", ["en", "hi", "ta", "te", "ml"], index=0)
-
-# CSS for carousel and responsive layout
+# Inject custom CSS
 st.markdown("""
 <style>
 .container {
@@ -46,35 +50,32 @@ st.markdown("""
     overflow-x: auto;
     scroll-snap-type: x mandatory;
     -webkit-overflow-scrolling: touch;
-    gap: 20px;
+    gap: 1rem;
     padding: 1rem 0;
-    margin-bottom: 2rem;
 }
 .card {
     flex: 0 0 auto;
-    width: 200px;
-    scroll-snap-align: start;
-    background: #111;
+    width: 180px;
+    background-color: #111;
     color: white;
     border-radius: 12px;
-    box-shadow: 0 0 10px rgba(255,255,255,0.1);
-    position: relative;
+    scroll-snap-align: start;
+    box-shadow: 0 4px 8px rgba(255,255,255,0.1);
+    cursor: pointer;
+    text-align: center;
 }
 .card img {
     width: 100%;
     border-radius: 12px 12px 0 0;
-    cursor: pointer;
 }
 .card-info {
     padding: 10px;
-    font-size: 0.9rem;
-    text-align: center;
+    font-size: 0.8rem;
 }
-iframe.trailer {
-    width: 100%;
-    height: 200px;
-    border: none;
-    border-radius: 0 0 12px 12px;
+@media only screen and (max-width: 768px) {
+    .card {
+        width: 140px;
+    }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -82,31 +83,26 @@ iframe.trailer {
 # Carousel renderer
 def render_carousel(title, movies):
     st.subheader(title)
-    if not movies:
-        st.warning("No movies found.")
-        return
-
     html_code = "<div class='container'>"
-    for m in movies:
-        poster = IMAGE_BASE + m["poster_path"] if m.get("poster_path") else ""
-        trailer = get_trailer(m["id"])
-        card = f"""
-        <div class='card'>
-            <img src='{poster}' onclick=\"window.open('{trailer}','_blank')\" />
-            <div class='card-info'>
-                <strong>{m.get('title','')}</strong><br>
-                <small>{m.get('release_date','')}</small><br>
-                <small>⭐ {m.get('vote_average','')}</small>
+    for movie in movies:
+        poster = IMAGE_BASE + movie["poster_path"] if movie.get("poster_path") else ""
+        trailer = get_trailer(movie["id"])
+        html_code += f"""
+            <div class='card' onclick="window.open('{trailer}', '_blank')">
+                <img src='{poster}' />
+                <div class='card-info'>
+                    <strong>{movie.get('title', '')}</strong><br>
+                    <small>{movie.get('release_date', '')}</small><br>
+                    <small>⭐ {movie.get('vote_average', '')}</small>
+                </div>
             </div>
-        </div>
         """
-        html_code += card
     html_code += "</div>"
-    html(html_code, height=350)
+    html(html_code, height=400)
 
-# Fetch data and render
-popular = fetch_movies("popular", year, language)
-upcoming = fetch_movies("upcoming", year, language)
+# Fetch and render
+popular_movies = fetch_movies(year, language)
+upcoming_movies = fetch_movies(year, language, is_upcoming=True)
 
-render_carousel("Popular Movies", popular)
-render_carousel("Upcoming Movies", upcoming)
+render_carousel("Popular Movies", popular_movies)
+render_carousel("Upcoming Movies", upcoming_movies)
