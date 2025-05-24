@@ -1,19 +1,19 @@
 import streamlit as st 
 import requests
 
---- Page Config ---
+#--- Page Config ---
 
 st.set_page_config(layout="wide", page_title="Movie Explorer")
 
---- Load API Key from secrets ---
+#--- Load API Key from secrets ---
 
 API_KEY = st.secrets["TMDB_API_KEY"] BASE_URL = "https://api.themoviedb.org/3" IMG_BASE_URL = "https://image.tmdb.org/t/p/w500"
 
---- Fetch Movies ---
+#--- Fetch Movies ---
 
 def fetch_movies(category="popular"): url = f"{BASE_URL}/movie/{category}?api_key={API_KEY}&language=en-US&page=1" response = requests.get(url) if response.status_code == 200: return response.json().get("results", []) else: st.error("Failed to fetch movie data.") return []
 
---- Render Movie Carousel ---
+#--- Render Movie Carousel ---
 
 def render_movie_carousel(title, movies): st.markdown(f""" <h2 style='margin-bottom: 10px;'> {title} </h2> <div class='scrolling-wrapper'> """, unsafe_allow_html=True)
 
@@ -37,11 +37,11 @@ for movie in movies:
 
 st.markdown("</div><hr>", unsafe_allow_html=True)
 
---- Custom CSS ---
+#--- Custom CSS ---
 
 st.markdown(""" <style> .scrolling-wrapper { display: flex; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 10px; } .scrolling-wrapper::-webkit-scrollbar { height: 8px; } .scrolling-wrapper::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; } .card { flex: 0 0 auto; width: 200px; margin-right: 15px; background: #1e1e1e; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.3); } .poster { width: 100%; height: 300px; object-fit: cover; } .card-body { padding: 10px; color: white; } h2 { color: white; } </style> """, unsafe_allow_html=True)
 
---- Main App ---
+#--- Main App ---
 
 st.title("Movie Dashboard")
 
