@@ -1,19 +1,19 @@
 import streamlit as st
 import requests
 
-# Set up page configuration
+# Page config
 st.set_page_config(page_title="🎬 Movie Magic!", layout="wide")
 st.title("🎬 Welcome to Movie Magic!")
 
-# Retrieve API keys from secrets
+# API Keys from secrets
 TMDB_API_KEY = st.secrets["TMDB_API_KEY"]
 OMDB_API_KEY = st.secrets["OMDB_API_KEY"]
 
-# Base URLs
+# URLs
 TMDB_BASE_URL = "https://api.themoviedb.org/3"
 TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
 
-# Fetch genre mapping from TMDB
+# Fetch genre map
 @st.cache_data
 def get_genre_map():
     url = f"{TMDB_BASE_URL}/genre/movie/list"
@@ -25,7 +25,7 @@ def get_genre_map():
         genre_map = {genre["name"].lower(): genre["id"] for genre in genres}
     return genre_map
 
-# Function to fetch movies from TMDB
+# Fetch movies from TMDB
 def fetch_movies(category, year=None, genre_id=None, language=None):
     url = f"{TMDB_BASE_URL}/movie/{category}"
     params = {
@@ -44,10 +44,9 @@ def fetch_movies(category, year=None, genre_id=None, language=None):
     response = requests.get(url, params=params)
     if response.status_code == 200:
         return response.json().get("results", [])[:10]
-    else:
-        return []
+    return []
 
-# Function to fetch trailer URL
+# Fetch trailer
 def fetch_trailer(movie_id):
     url = f"{TMDB_BASE_URL}/movie/{movie_id}/videos"
     params = {"api_key": TMDB_API_KEY}
@@ -59,7 +58,7 @@ def fetch_trailer(movie_id):
                 return f"https://www.youtube.com/watch?v={video['key']}"
     return None
 
-# Function to fetch ratings from OMDb
+# Fetch ratings
 def fetch_ratings(title):
     url = f"http://www.omdbapi.com/?t={title}&apikey={OMDB_API_KEY}"
     response = requests.get(url)
@@ -71,10 +70,9 @@ def fetch_ratings(title):
             if rating["Source"] == "Rotten Tomatoes":
                 rt_rating = rating["Value"]
         return imdb_rating, rt_rating
-    else:
-        return "N/A", "N/A"
+    return "N/A", "N/A"
 
-# Function to display movie cards
+# Display movies
 def display_movies(movies, show_details=True):
     for i in range(0, len(movies), 5):
         cols = st.columns(5)
@@ -87,7 +85,6 @@ def display_movies(movies, show_details=True):
                 trailer_url = fetch_trailer(movie["id"])
                 imdb_rating, rt_rating = fetch_ratings(movie['title'])
 
-                # Clickable poster linking to YouTube trailer
                 if trailer_url:
                     st.markdown(f'''
                         <a href="{trailer_url}" target="_blank">
@@ -111,25 +108,24 @@ genre_input = st.sidebar.text_input("Enter Genre (e.g., Action, Comedy)").strip(
 language = st.sidebar.selectbox("Select Language", ["All", "en", "hi", "ta", "te", "ml"])
 language = None if language == "All" else language
 
-# Get genre ID from name
+# Genre ID from name
 genre_map = get_genre_map()
 genre_id = genre_map.get(genre_input) if genre_input else None
 
-# Sections
-st.subheader("🔥 Popular Movies")
-popular_movies = fetch_movies("popular", year=year, genre_id=genre_id, language=language)
-display_movies(popular_movies)
+# Sections in expanders
+with st.expander("🔥 Popular Movies", expanded=True):
+    popular_movies = fetch_movies("popular", year=year, genre_id=genre_id, language=language)
+    display_movies(popular_movies)
 
-st.subheader("🎯 Upcoming Movies")
-upcoming_movies = fetch_movies("upcoming", year=year, genre_id=genre_id, language=language)
-display_movies(upcoming_movies, show_details=False)
+with st.expander("🎯 Upcoming Movies"):
+    upcoming_movies = fetch_movies("upcoming", year=year, genre_id=genre_id, language=language)
+    display_movies(upcoming_movies, show_details=False)
 
-# Simulated Netflix & Amazon Prime Sections
-st.subheader("📺 New on Netflix")
-netflix_movies = fetch_movies("now_playing", language="en")[:10]
-display_movies(netflix_movies, show_details=False)
+with st.expander("📺 New on Netflix"):
+    netflix_movies = fetch_movies("now_playing", language="en")
+    display_movies(netflix_movies, show_details=False)
 
-st.subheader("🛒 New on Amazon Prime")
-amazon_movies = fetch_movies("top_rated", language="en")[:10]
-display_movies(amazon_movies, show_details=False)
+with st.expander("🛒 New on Amazon Prime"):
+    amazon_movies = fetch_movies("top_rated", language="en")
+    display_movies(amazon_movies, show_details=False)
 
