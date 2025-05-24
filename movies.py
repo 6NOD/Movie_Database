@@ -2,21 +2,18 @@ import streamlit as st
 import requests
 from streamlit.components.v1 import html
 
-# Page setup
 st.set_page_config(page_title="🎬 Movie Magic", layout="wide")
 st.title("🎬 Welcome to Movie Magic!")
 
-# Constants
 API_KEY = st.secrets["TMDB_API_KEY"]
 BASE_URL = "https://api.themoviedb.org/3"
-IMAGE_BASE = "https://image.tmdb.org/t/p/w780"  # High-res posters
+IMAGE_BASE = "https://image.tmdb.org/t/p/w500"  # balanced quality vs speed
 
-# Sidebar filters
-year = st.sidebar.selectbox("Select Year", list(range(2025, 1990, -1)), index=0)
-language = st.sidebar.selectbox("Language", ["en", "hi", "ta", "te", "ml"], index=0)
+# Sidebar
+year = st.sidebar.selectbox("Year", list(range(2025, 1990, -1)))
+language = st.sidebar.selectbox("Language", ["en", "hi", "ta", "te", "ml"])
 
-# Fetch movie data
-def fetch_movies(category, year, language, limit=12):
+def fetch_movies(category, year, language, limit=20):
     if category == "popular":
         endpoint = f"{BASE_URL}/discover/movie"
         params = {
@@ -29,18 +26,13 @@ def fetch_movies(category, year, language, limit=12):
         }
     elif category == "upcoming":
         endpoint = f"{BASE_URL}/movie/upcoming"
-        params = {
-            "api_key": API_KEY,
-            "language": "en-US",
-            "region": "IN",
-        }
+        params = {"api_key": API_KEY, "language": "en-US", "region": "IN"}
     else:
         return []
-    
+
     res = requests.get(endpoint, params=params)
     return res.json().get("results", [])[:limit]
 
-# Get trailer/watch link
 def get_trailer(movie_id):
     res = requests.get(f"{BASE_URL}/movie/{movie_id}/videos", params={"api_key": API_KEY})
     for v in res.json().get("results", []):
@@ -52,36 +44,35 @@ def get_watch_link(movie_id):
     res = requests.get(f"{BASE_URL}/movie/{movie_id}/watch/providers", params={"api_key": API_KEY})
     return res.json().get("results", {}).get("IN", {}).get("link")
 
-# Render carousel
 def render_carousel(title, movies, show_info=True):
     st.subheader(title)
-    if not movies:
-        st.warning("No movies found.")
-        return
 
-    # CSS for smooth swipe
     st.markdown("""
     <style>
-    .movie-carousel {
+    .carousel-container {
         display: flex;
-        overflow-x: scroll;
-        scroll-behavior: smooth;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
         -webkit-overflow-scrolling: touch;
-        padding-bottom: 20px;
+        padding-bottom: 1rem;
     }
     .movie-card {
         flex: 0 0 auto;
-        width: 220px;
-        margin-right: 16px;
+        scroll-snap-align: start;
+        width: 180px;
+        margin-right: 20px;
+        border-radius: 12px;
         background-color: #111;
         color: #fff;
-        border-radius: 12px;
         box-shadow: 0 4px 10px rgba(255,255,255,0.1);
-        position: relative;
+        transition: transform 0.3s;
+    }
+    .movie-card:hover {
+        transform: scale(1.05);
     }
     .movie-card img {
         width: 100%;
-        height: 330px;
+        height: 270px;
         object-fit: cover;
         border-top-left-radius: 12px;
         border-top-right-radius: 12px;
@@ -94,47 +85,51 @@ def render_carousel(title, movies, show_info=True):
     }
     .watch-now {
         position: absolute;
-        top: 10px;
-        left: 10px;
+        top: 8px;
+        left: 8px;
         background-color: gold;
         color: black;
         padding: 4px 8px;
-        font-size: 0.75rem;
+        font-size: 0.7rem;
         font-weight: bold;
-        border-radius: 6px;
+        border-radius: 5px;
     }
     </style>
     """, unsafe_allow_html=True)
 
-    # HTML content
-    carousel = "<div class='movie-carousel'>"
-    for movie in movies:
-        poster = IMAGE_BASE + movie["poster_path"] if movie.get("poster_path") else ""
-        trailer = get_trailer(movie["id"])
-        watch_link = get_watch_link(movie["id"])
+    html_code = "<div class='carousel-container'>"
+    for m in movies:
+        poster = IMAGE_BASE + m["poster_path"] if m.get("poster_path") else ""
+        trailer = get_trailer(m["id"])
+        watch_link = get_watch_link(m["id"])
         link = watch_link or trailer or "#"
-
         badge = "<div class='watch-now'>Watch Now</div>" if watch_link else ""
+
         info = f"""
         <div class='movie-info'>
-            <strong>{movie.get('title','')}</strong><br>
-            <small>{movie.get('release_date','')}</small><br>
-            <small>⭐ {movie.get('vote_average','')}</small>
-        </div>""" if show_info else ""
+            <strong>{m.get('title','')}</strong><br>
+            <small>{m.get('release_date','')}</small><br>
+            <small>⭐ {m.get('vote_average','')}</small>
+        </div>
+        """ if show_info else ""
 
-        carousel += f"""
+        card = f"""
         <div class='movie-card'>
-            {badge}
-            <img src="{poster}" onclick="window.open('{link}', '_blank')">
+            <div style='position: relative;'>
+                {badge}
+                <img src="{poster}" onclick="window.open('{link}', '_blank')">
+            </div>
             {info}
-        </div>"""
-    carousel += "</div>"
+        </div>
+        """
+        html_code += card
+    html_code += "</div>"
 
-    html(carousel, height=430)
+    html(html_code, height=400)
 
 # Fetch and display
 popular = fetch_movies("popular", year, language)
 upcoming = fetch_movies("upcoming", year, language)
 
-render_carousel("Popular Movies", popular)
-render_carousel("Upcoming Movies", upcoming, show_info=False)
+render_carousel("🔥 Popular Movies", popular)
+render_carousel("🎬 Upcoming Movies", upcoming, show_info=False)
