@@ -25,31 +25,25 @@ def get_genre_map():
         genre_map = {genre["name"].lower(): genre["id"] for genre in genres}
     return genre_map
 
-# Function to fetch movies from TMDB
-def fetch_movies(category, year=None, genre_id=None, language=None):
-    url = f"{TMDB_BASE_URL}/movie/{category}"
+# Function to fetch movies or series
+
+def fetch_items(endpoint, item_type="movie", limit=10):
+    url = f"{TMDB_BASE_URL}/{endpoint}"
     params = {
         "api_key": TMDB_API_KEY,
         "language": "en-US",
         "sort_by": "popularity.desc",
         "page": 1
     }
-    if year:
-        params["primary_release_year"] = year
-    if genre_id:
-        params["with_genres"] = genre_id
-    if language:
-        params["with_original_language"] = language
-
     response = requests.get(url, params=params)
     if response.status_code == 200:
-        return response.json().get("results", [])
+        return response.json().get("results", [])[:limit]
     else:
         return []
 
 # Function to fetch trailer URL
-def fetch_trailer(movie_id):
-    url = f"{TMDB_BASE_URL}/movie/{movie_id}/videos"
+def fetch_trailer(item_id, item_type="movie"):
+    url = f"{TMDB_BASE_URL}/{item_type}/{item_id}/videos"
     params = {"api_key": TMDB_API_KEY}
     response = requests.get(url, params=params)
     if response.status_code == 200:
@@ -74,37 +68,29 @@ def fetch_ratings(title):
     else:
         return "N/A", "N/A"
 
-# Function to display movies with expandable trailers
-def display_movies(movies, show_details=True):
-    for i in range(0, len(movies), 5):
+# Function to display cards with trailers
+def display_items(items, show_details=True):
+    for i in range(0, len(items), 5):
         cols = st.columns(5)
         for j in range(5):
-            if i + j >= len(movies):
+            if i + j >= len(items):
                 break
-            movie = movies[i + j]
+            item = items[i + j]
             with cols[j]:
-                poster_url = TMDB_IMAGE_BASE_URL + movie["poster_path"] if movie.get("poster_path") else ""
-                trailer_url = fetch_trailer(movie["id"])
-
-                if trailer_url:
-                    with st.expander(movie["title"]):
+                poster_url = TMDB_IMAGE_BASE_URL + item["poster_path"] if item.get("poster_path") else ""
+                trailer_url = fetch_trailer(item["id"], item_type="movie")
+                with st.container():
+                    if trailer_url:
                         st.image(poster_url, use_container_width=True)
                         st.video(trailer_url)
-                        if show_details:
-                            st.markdown(f"**Release Date:** {movie.get('release_date', 'N/A')}")
-                            st.markdown(f"**TMDB Rating:** {movie.get('vote_average', 'N/A')}")
-                            imdb_rating, rt_rating = fetch_ratings(movie['title'])
-                            st.markdown(f"**IMDb Rating:** {imdb_rating}")
-                            st.markdown(f"**Rotten Tomatoes:** {rt_rating}")
-                else:
-                    st.image(poster_url, use_container_width=True)
-                    st.markdown(f"**{movie['title']}**")
+                    else:
+                        st.image(poster_url, use_container_width=True)
+                    st.markdown(f"**{item['title'] if 'title' in item else item['name']}**")
                     if show_details:
-                        st.markdown(f"Release Date: {movie.get('release_date', 'N/A')}")
-                        st.markdown(f"TMDB Rating: {movie.get('vote_average', 'N/A')}")
-                        imdb_rating, rt_rating = fetch_ratings(movie['title'])
-                        st.markdown(f"IMDb Rating: {imdb_rating}")
-                        st.markdown(f"Rotten Tomatoes: {rt_rating}")
+                        st.markdown(f"Release: {item.get('release_date', item.get('first_air_date', 'N/A'))}")
+                        st.markdown(f"TMDB Rating: {item.get('vote_average', 'N/A')}")
+                        imdb_rating, rt_rating = fetch_ratings(item['title'] if 'title' in item else item['name'])
+                        st.markdown(f"IMDb: {imdb_rating} | RT: {rt_rating}")
 
 # Sidebar filters
 st.sidebar.header("Filters")
@@ -113,16 +99,23 @@ genre_input = st.sidebar.text_input("Enter Genre (e.g., Action, Comedy)").strip(
 language = st.sidebar.selectbox("Select Language", ["All", "en", "hi", "ta", "te", "ml"])
 language = None if language == "All" else language
 
-# Get genre ID from name
+# Fetch genre ID
 genre_map = get_genre_map()
 genre_id = genre_map.get(genre_input) if genre_input else None
 
-# Fetch and display popular movies
-st.subheader("🔥 Popular Movies")
-popular_movies = fetch_movies("popular", year=year, genre_id=genre_id, language=language)
-display_movies(popular_movies)
+# Sections
+st.subheader("🔥 Top 10 Popular Movies")
+popular_movies = fetch_items("movie/popular", limit=10)
+display_items(popular_movies)
 
-# Fetch and display upcoming movies
-st.subheader("🎯 Upcoming Movies")
-upcoming_movies = fetch_movies("upcoming", year=year, genre_id=genre_id, language=language)
-display_movies(upcoming_movies, show_details=False)
+st.subheader("🎯 Top 10 Upcoming Movies")
+upcoming_movies = fetch_items("movie/upcoming", limit=10)
+display_items(upcoming_movies, show_details=False)
+
+st.subheader("🆕 Recently Added on Netflix")
+netflix_movies = fetch_items("movie/now_playing", limit=10)
+display_items(netflix_movies, show_details=False)
+
+st.subheader("⭐ New on Amazon Prime")
+amazon_movies = fetch_items("movie/top_rated", limit=10)
+display_items(amazon_movies, show_details=False)
