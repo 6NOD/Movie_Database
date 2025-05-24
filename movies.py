@@ -1,55 +1,99 @@
-import streamlit as st 
+import streamlit as st
 import requests
+import pandas as pd
 
-#--- Page Config ---
+# Set up page configuration
+st.set_page_config(page_title="🎬 Movie Magic!", layout="wide")
+st.title("🎬 Welcome to Movie Magic!")
 
-st.set_page_config(layout="wide", page_title="Movie Explorer")
+# Retrieve API keys from secrets
+TMDB_API_KEY = st.secrets["TMDB_API_KEY"]
+OMDB_API_KEY = st.secrets["OMDB_API_KEY"]
 
-#--- Load API Key from secrets ---
+# Base URLs
+TMDB_BASE_URL = "https://api.themoviedb.org/3"
+TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
 
-API_KEY = st.secrets["TMDB_API_KEY"] BASE_URL = "https://api.themoviedb.org/3" IMG_BASE_URL = "https://image.tmdb.org/t/p/w500"
+# Function to fetch movies from TMDB
+def fetch_movies(category, year=None, genre_id=None, language=None):
+    url = f"{TMDB_BASE_URL}/movie/{category}"
+    params = {
+        "api_key": TMDB_API_KEY,
+        "language": "en-US",
+        "sort_by": "popularity.desc",
+        "page": 1
+    }
+    if year:
+        params["primary_release_year"] = year
+    if genre_id:
+        params["with_genres"] = genre_id
+    if language:
+        params["with_original_language"] = language
 
-#--- Fetch Movies ---
+    response = requests.get(url, params=params)
+    if response.status_code == 200:
+        return response.json().get("results", [])
+    else:
+        return []
 
-def fetch_movies(category="popular"): url = f"{BASE_URL}/movie/{category}?api_key={API_KEY}&language=en-US&page=1" response = requests.get(url) if response.status_code == 200: return response.json().get("results", []) else: st.error("Failed to fetch movie data.") return []
+# Function to fetch trailer URL
+def fetch_trailer(movie_id):
+    url = f"{TMDB_BASE_URL}/movie/{movie_id}/videos"
+    params = {"api_key": TMDB_API_KEY}
+    response = requests.get(url, params=params)
+    if response.status_code == 200:
+        videos = response.json().get("results", [])
+        for video in videos:
+            if video["site"] == "YouTube" and video["type"] == "Trailer":
+                return f"https://www.youtube.com/embed/{video['key']}"
+    return None
 
-#--- Render Movie Carousel ---
+# Function to fetch ratings from OMDb
+def fetch_ratings(title):
+    url = f"http://www.omdbapi.com/?t={title}&apikey={OMDB_API_KEY}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        imdb_rating = data.get("imdbRating", "N/A")
+        rt_rating = "N/A"
+        for rating in data.get("Ratings", []):
+            if rating["Source"] == "Rotten Tomatoes":
+                rt_rating = rating["Value"]
+        return imdb_rating, rt_rating
+    else:
+        return "N/A", "N/A"
 
-def render_movie_carousel(title, movies): st.markdown(f""" <h2 style='margin-bottom: 10px;'> {title} </h2> <div class='scrolling-wrapper'> """, unsafe_allow_html=True)
+# Function to display movies in a responsive grid
+def display_movies(movies, show_details=True):
+    cols = st.columns(5)
+    for index, movie in enumerate(movies):
+        with cols[index % 5]:
+            poster_url = TMDB_IMAGE_BASE_URL + movie["poster_path"] if movie.get("poster_path") else ""
+            st.image(poster_url, use_column_width=True)
+            if show_details:
+                st.markdown(f"**{movie['title']}**")
+                st.markdown(f"Release Date: {movie.get('release_date', 'N/A')}")
+                st.markdown(f"TMDB Rating: {movie.get('vote_average', 'N/A')}")
+                imdb_rating, rt_rating = fetch_ratings(movie['title'])
+                st.markdown(f"IMDb Rating: {imdb_rating}")
+                st.markdown(f"Rotten Tomatoes: {rt_rating}")
+                trailer_url = fetch_trailer(movie["id"])
+                if trailer_url:
+                    st.video(trailer_url)
 
-for movie in movies:
-    poster_path = movie.get("poster_path")
-    poster_url = f"{IMG_BASE_URL}{poster_path}" if poster_path else ""
-    movie_title = movie.get("title")
-    release_date = movie.get("release_date")
-    rating = movie.get("vote_average")
+# Sidebar filters
+st.sidebar.header("Filters")
+year = st.sidebar.selectbox("Select Year", list(range(2025, 1990, -1)))
+genre = st.sidebar.text_input("Enter Genre (e.g., Action, Comedy)")
+language = st.sidebar.selectbox("Select Language", ["All", "en", "hi", "ta", "te", "ml"])
+language = None if language == "All" else language
 
-    st.markdown(f"""
-    <div class='card'>
-        <img src='{poster_url}' class='poster' />
-        <div class='card-body'>
-            <h4>{movie_title}</h4>
-            <p>Release: {release_date}</p>
-            <p>Rating: ⭐ {rating}</p>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+# Fetch and display popular movies
+st.subheader("Popular Movies")
+popular_movies = fetch_movies("popular", year=year, language=language)
+display_movies(popular_movies)
 
-st.markdown("</div><hr>", unsafe_allow_html=True)
-
-#--- Custom CSS ---
-
-st.markdown(""" <style> .scrolling-wrapper { display: flex; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 10px; } .scrolling-wrapper::-webkit-scrollbar { height: 8px; } .scrolling-wrapper::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; } .card { flex: 0 0 auto; width: 200px; margin-right: 15px; background: #1e1e1e; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.3); } .poster { width: 100%; height: 300px; object-fit: cover; } .card-body { padding: 10px; color: white; } h2 { color: white; } </style> """, unsafe_allow_html=True)
-
-#--- Main App ---
-
-st.title("Movie Dashboard")
-
-popular_movies = fetch_movies("popular") upcoming_movies = fetch_movies("upcoming")
-
-tabs = st.tabs(["🔥 Popular Movies", "🎯 Upcoming Movies"])
-
-with tabs[0]: render_movie_carousel("🔥 Popular Movies", popular_movies)
-
-with tabs[1]: render_movie_carousel("🎯 Upcoming Movies", upcoming_movies)
-
+# Fetch and display upcoming movies
+st.subheader("Upcoming Movies")
+upcoming_movies = fetch_movies("upcoming", year=year, language=language)
+display_movies(upcoming_movies, show_details=False)
