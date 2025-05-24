@@ -1,60 +1,88 @@
 import streamlit as st
 import requests
+from streamlit.components.v1 import html
 
-st.set_page_config(layout="wide")
+# Set up page
+st.set_page_config(page_title="🎬 Welcome to Movie Magic!", layout="wide")
+st.title("🎬 Welcome to Movie Magic!")
 
-# Set title
-st.title("🎬 Movie Dashboard")
+# Constants
+API_KEY = st.secrets["TMDB_API_KEY"]
+BASE_URL = "https://api.themoviedb.org/3"
+IMAGE_BASE = "https://image.tmdb.org/t/p/w500"
 
-# Fetch movie data from TMDB
-api_key = st.secrets["tmdb_api"]
-base_url = "https://api.themoviedb.org/3"
-image_base_url = "https://image.tmdb.org/t/p/w500"
-
-
-def get_movies(endpoint):
-    url = f"{base_url}/{endpoint}?api_key={api_key}&language=en-US&page=1"
-    response = requests.get(url)
-    if response.status_code == 200:
-        return response.json().get("results", [])
+# Helper to fetch movies by year/language
+def fetch_movies(category, year, language, limit=10):
+    if category == "popular":
+        endpoint = f"{BASE_URL}/discover/movie"
+    elif category == "upcoming":
+        endpoint = f"{BASE_URL}/movie/upcoming"
     else:
         return []
 
+    params = {
+        "api_key": API_KEY,
+        "language": "en-US",
+        "region": "IN",
+        "sort_by": "popularity.desc",
+        "with_original_language": language,
+        "primary_release_year": year if category == "popular" else None
+    }
+    res = requests.get(endpoint, params=params)
+    movies = res.json().get("results", [])
+    return movies[:limit]
 
-def display_movies(movie_list):
-    cols = st.columns(5)
-    for i, movie in enumerate(movie_list):
-        with cols[i % 5]:
-            poster_path = movie.get("poster_path")
-            title = movie.get("title", "Unknown Title")
-            rating = movie.get("vote_average", "N/A")
-            release_date = movie.get("release_date", "")
-            
-            if poster_path:
-                st.image(image_base_url + poster_path, use_column_width=True)
-            st.markdown(f"**{title}**")
-            st.caption(f"Rating: {rating} | Release: {release_date}")
+# Get trailer link
+def get_trailer(movie_id):
+    url = f"{BASE_URL}/movie/{movie_id}/videos"
+    res = requests.get(url, params={"api_key": API_KEY})
+    videos = res.json().get("results", [])
+    for v in videos:
+        if v["site"] == "YouTube" and v["type"] == "Trailer":
+            return f"https://www.youtube.com/embed/{v['key']}"
+    return None
 
+# Get free watch link if available
+def get_watch_link(movie_id):
+    url = f"{BASE_URL}/movie/{movie_id}/watch/providers"
+    res = requests.get(url, params={"api_key": API_KEY})
+    results = res.json().get("results", {})
+    link = results.get("IN", {}).get("link")
+    return link
 
-# Genre and category filter (example demo, can be enhanced)
-genres = ["All", "Action", "Comedy", "Drama", "Horror", "Romance"]
-selected_genre = st.selectbox("Filter by Genre (for future enhancement)", genres)
+# Sidebar filters
+year = st.sidebar.selectbox("Select Year", list(range(2025, 1990, -1)), index=0)
+language = st.sidebar.selectbox("Language", ["en", "hi", "ta", "te", "ml"], index=0)
 
-# Tabs for movie categories
-tab1, tab2 = st.tabs(["🔥 Popular Movies", "🎯 Upcoming Movies"])
-
-with tab1:
-    st.subheader("Popular Movies")
-    popular_movies = get_movies("movie/popular")
-    display_movies(popular_movies)
-
-with tab2:
-    st.subheader("Upcoming Movies")
-    upcoming_movies = get_movies("movie/upcoming")
-    display_movies(upcoming_movies)
-
-# Optional: Add a footer
+# CSS for carousel and responsive layout
 st.markdown("""
----
-Built with ❤️ using Streamlit and TMDB API
-""")
+<style>
+.container {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    gap: 20px;
+    padding: 1rem 0;
+    margin-bottom: 2rem;
+    width: 100%;
+}
+.card {
+    flex: 0 0 auto;
+    width: 200px;
+    scroll-snap-align: start;
+    background: #111;
+    color: white;
+    border-radius: 12px;
+    box-shadow: 0 0 10px rgba(255,255,255,0.1);
+    position: relative;
+    overflow: hidden;
+}
+.card img {
+    width: 100%;
+    border-radius: 12px 12px 0 0;
+    cursor: pointer;
+}
+.card-info {
+    padding: 10px;
+    
