@@ -1,5 +1,4 @@
-import streamlit as st 
-import requests
+import streamlit as st import requests
 
 Set up page
 
@@ -13,7 +12,7 @@ Functions
 
 def fetch_movies(endpoint, params=None): if params is None: params = {} params["api_key"] = API_KEY params["language"] = "en-US" response = requests.get(f"{BASE_URL}/{endpoint}", params=params) return response.json().get("results", [])
 
-def get_trailer(movie_id): url = f"{BASE_URL}/movie/{movie_id}/videos" res = requests.get(url, params={"api_key": API_KEY}) videos = res.json().get("results", []) for v in videos: if v["site"] == "YouTube" and v["type"] == "Trailer": return f"https://www.youtube.com/watch?v={v['key']}" return None
+def get_trailer(movie_id): url = f"{BASE_URL}/movie/{movie_id}/videos" res = requests.get(url, params={"api_key": API_KEY}) videos = res.json().get("results", []) for v in videos: if v["site"] == "YouTube" and v["type"] == "Trailer": return f"https://www.youtube.com/embed/{v['key']}" return None
 
 Sidebar filters
 
@@ -23,33 +22,53 @@ category_map = { "Popular": "movie/popular", "Top Rated": "movie/top_rated", "Up
 
 movies = fetch_movies(category_map[category])
 
-Movie Cards
+CSS for responsiveness and hover effect
 
 st.markdown("""
 
 <style>
+.grid-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+}
 .movie-card {
     border-radius: 12px;
     background-color: #111;
-    padding: 10px;
-    margin: 5px;
+    padding: 0;
     text-align: center;
     color: #fff;
+    overflow: hidden;
+    position: relative;
     box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
-    transition: 0.3s ease;
+    transition: transform 0.2s ease;
 }
 .movie-card:hover {
-    transform: scale(1.03);
-    box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+    transform: scale(1.02);
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
 }
-.movie-poster {
-    border-radius: 8px;
+.movie-card img {
     width: 100%;
-    height: auto;
+    display: block;
+    border-radius: 12px;
+    cursor: pointer;
+}
+.trailer-embed {
+    width: 100%;
+    height: 300px;
+    margin-top: 10px;
+    border: none;
+    border-radius: 12px;
 }
 </style>""", unsafe_allow_html=True)
 
-cols = st.columns(5) st.subheader(f"{category} Movies ({year})")
+Display movies
 
-for idx, movie in enumerate(movies): if movie.get("release_date", "").startswith(str(year)): with cols[idx % 5]: with st.container(): st.markdown(f"<div class='movie-card'>", unsafe_allow_html=True) st.image(f"{IMAGE_BASE}{movie['poster_path']}", caption=movie['title'], use_column_width=True) if st.button("More Info", key=f"btn_{movie['id']}"): st.subheader(movie["title"]) st.write(f"Release Date: {movie['release_date']}") st.write(f"Rating: {movie['vote_average']} ⭐") st.write(f"Overview: {movie['overview']}") trailer = get_trailer(movie["id"]) if trailer: st.video(trailer) else: st.info("Trailer not available.") st.markdown("</div>", unsafe_allow_html=True)
+displayed = 0 st.subheader(f"{category} Movies ({year})") st.markdown('<div class="grid-container">', unsafe_allow_html=True)
+
+for movie in movies: if movie.get("release_date", "").startswith(str(year)): trailer_url = get_trailer(movie["id"]) if category == "Upcoming": st.markdown(f""" <div class="movie-card"> <a href="{trailer_url}" target="_blank"> <img src="{IMAGE_BASE}{movie['poster_path']}" alt="{movie['title']}"> </a> </div> """, unsafe_allow_html=True) else: st.markdown(f""" <div class="movie-card"> <a href="#" onclick="window.open('{trailer_url}', '_blank')"> <img src="{IMAGE_BASE}{movie['poster_path']}" alt="{movie['title']}"> </a> <div style="padding:10px"> <strong>{movie['title']}</strong><br> Release: {movie['release_date']}<br> Rating: {movie['vote_average']} ⭐ </div> </div> """, unsafe_allow_html=True) displayed += 1
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+if displayed == 0: st.warning("No movies found for the selected year.")
 
