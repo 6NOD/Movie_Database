@@ -2,16 +2,15 @@ import streamlit as st
 import requests
 from streamlit.components.v1 import html
 
-# Set up page
-st.set_page_config(page_title="🎬 Welcome to Movie Magic!", layout="wide")
+# Page Setup
+st.set_page_config(page_title="🎬 Movie Magic", layout="wide")
 st.title("🎬 Welcome to Movie Magic!")
 
-# Constants
 API_KEY = st.secrets["TMDB_API_KEY"]
 BASE_URL = "https://api.themoviedb.org/3"
 IMAGE_BASE = "https://image.tmdb.org/t/p/w500"
 
-# Helper to fetch movies
+# Fetch Movies
 def fetch_movies(category, year, language, limit=10):
     if category == "popular":
         endpoint = f"{BASE_URL}/discover/movie"
@@ -25,11 +24,7 @@ def fetch_movies(category, year, language, limit=10):
         }
     elif category == "upcoming":
         endpoint = f"{BASE_URL}/movie/upcoming"
-        params = {
-            "api_key": API_KEY,
-            "language": "en-US",
-            "region": "IN"
-        }
+        params = {"api_key": API_KEY, "language": "en-US", "region": "IN"}
     else:
         return []
     res = requests.get(endpoint, params=params)
@@ -50,89 +45,86 @@ def get_watch_link(movie_id):
 year = st.sidebar.selectbox("Select Year", list(range(2025, 1990, -1)), index=0)
 language = st.sidebar.selectbox("Language", ["en", "hi", "ta", "te", "ml"], index=0)
 
-# CSS + JS Carousel
+# CSS + HTML Carousel
 carousel_css = """
 <style>
-.scroll-wrapper {
-  overflow-x: scroll;
-  overflow-y: hidden;
-  white-space: nowrap;
-  padding-bottom: 1rem;
+.carousel {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  gap: 1rem;
+  padding: 1rem 0;
 }
-.scroll-wrapper::-webkit-scrollbar {
+.carousel::-webkit-scrollbar {
   height: 8px;
 }
-.scroll-wrapper::-webkit-scrollbar-thumb {
+.carousel::-webkit-scrollbar-thumb {
   background: #888;
   border-radius: 4px;
 }
 .card {
-  display: inline-block;
-  width: 200px;
-  margin-right: 16px;
-  vertical-align: top;
+  scroll-snap-align: start;
+  flex: 0 0 auto;
+  width: 180px;
+  border-radius: 12px;
   background: #111;
   color: white;
-  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 0 10px rgba(255,255,255,0.1);
+  box-shadow: 0 2px 10px rgba(255,255,255,0.1);
+  position: relative;
 }
 .card img {
   width: 100%;
-  height: auto;
-  display: block;
+  height: 270px;
+  object-fit: cover;
   cursor: pointer;
 }
 .card-info {
   padding: 10px;
   text-align: center;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 .watch-now {
   position: absolute;
-  background: gold;
-  color: black;
-  font-weight: bold;
-  font-size: 0.8rem;
-  padding: 4px 6px;
-  border-radius: 6px;
   top: 10px;
   left: 10px;
-}
-.card-container {
-  position: relative;
+  background-color: gold;
+  color: black;
+  font-size: 0.75rem;
+  font-weight: bold;
+  padding: 4px 6px;
+  border-radius: 6px;
 }
 </style>
 """
 
-# Carousel renderer
 def render_carousel(title, movies, show_info=True):
     st.subheader(title)
     if not movies:
-        st.warning("No movies found.")
+        st.info("No movies found.")
         return
 
-    html_code = "<div class='scroll-wrapper'>"
+    html_code = "<div class='carousel'>"
     for m in movies:
         poster = IMAGE_BASE + m["poster_path"] if m.get("poster_path") else ""
         trailer = get_trailer(m["id"])
         watch_link = get_watch_link(m["id"])
-        link = watch_link if watch_link else trailer
+        link = watch_link or trailer or "#"
         badge = "<div class='watch-now'>Watch Now</div>" if watch_link else ""
 
         info = f"""
-        <div class='card-info'>
-            <strong>{m.get('title','')}</strong><br>
-            <small>{m.get('release_date','')}</small><br>
-            <small>⭐ {m.get('vote_average','')}</small>
-        </div>""" if show_info else ""
+            <div class='card-info'>
+                <strong>{m.get('title', '')}</strong><br>
+                <small>{m.get('release_date', '')}</small><br>
+                <small>⭐ {m.get('vote_average', '')}</small>
+            </div>
+        """ if show_info else ""
 
         card = f"""
         <div class='card'>
-            <div class='card-container'>
-                {badge}
-                <img src='{poster}' onclick="window.open('{link}', '_blank')">
-            </div>
+            {badge}
+            <img src='{poster}' onclick="window.open('{link}', '_blank')">
             {info}
         </div>
         """
@@ -142,7 +134,7 @@ def render_carousel(title, movies, show_info=True):
     st.markdown(carousel_css, unsafe_allow_html=True)
     html(html_code, height=400)
 
-# Fetch and display
+# Fetch and show
 popular = fetch_movies("popular", year, language)
 upcoming = fetch_movies("upcoming", year, language)
 
