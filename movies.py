@@ -69,7 +69,7 @@ def display_movies(movies, show_details=True):
     for index, movie in enumerate(movies):
         with cols[index % 5]:
             poster_url = TMDB_IMAGE_BASE_URL + movie["poster_path"] if movie.get("poster_path") else ""
-            st.image(poster_url, use_column_width=True)
+            st.image(poster_url, use_comtainer_width=True)
             if show_details:
                 st.markdown(f"**{movie['title']}**")
                 st.markdown(f"Release Date: {movie.get('release_date', 'N/A')}")
