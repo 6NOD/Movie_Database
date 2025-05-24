@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
-from streamlit.components.v1 import html
+from streamlit.components.v1 
+import html
 
 # Set up page
 st.set_page_config(page_title="🎬 Movie Magic!", layout="wide")
