@@ -1,6 +1,10 @@
 
 import { useState, useRef, useEffect } from "react";
 
+# API Keys from secrets
+TMDB_API_KEY = st.secrets["TMDB_API_KEY"]
+OMDB_API_KEY = st.secrets["OMDB_API_KEY"]
+
 const TMDB_API_KEY = "REPLACE_WITH_YOUR_TMDB_API_KEY";
 const OMDB_API_KEY = "REPLACE_WITH_YOUR_OMDB_API_KEY";
 const TMDB_BASE = "https://api.themoviedb.org/3";
