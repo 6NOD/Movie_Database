@@ -5,8 +5,15 @@ import requests
 st.set_page_config(page_title="Movie Magic", layout="wide", page_icon="🎬")
 
 # ── API Keys ───────────────────────────────────────────────────────────────────
-TMDB_API_KEY = st.secrets["TMDB_API_KEY"]
-OMDB_API_KEY = st.secrets["OMDB_API_KEY"]
+st.write("Available secrets:", dict(st.secrets))
+
+TMDB_API_KEY = st.secrets.get("TMDB_API_KEY")
+OMDB_API_KEY = st.secrets.get("OMDB_API_KEY")
+
+st.write("TMDB Key Found:", TMDB_API_KEY is not None)
+st.write("OMDB Key Found:", OMDB_API_KEY is not None)
+
+
 TMDB_BASE_URL = "https://api.themoviedb.org/3"
 TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
 
